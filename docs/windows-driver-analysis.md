@@ -82,3 +82,67 @@ Instead:
 4. Search upstream Linux kernel/ALSA/SOF sources and issue history for HP `103C:88B5`, `SSTXperi4SPK`, or equivalent four-speaker ALC245 support.
 5. Only after the hardware path is identified should we experiment with Linux codec quirks, UCM topology, or DSP routing.
 
+
+## Live Windows registry confirmation
+
+The live registry capture confirms that the installed Windows driver is actively using the model-specific `103C:88B5` configuration rather than merely shipping dormant support in the package.
+
+### Device binding
+
+The active Realtek class instance reports:
+
+- driver version `6.0.9418.1`;
+- INF `oem42.inf` / `IntcAzAudModel.NTamd64`;
+- matching device ID `INTELAUDIO\\FUNC_01&VEN_10EC&DEV_0245&SUBSYS_103C88B5`.
+
+### Model-specific settings key
+
+Windows has a dedicated settings subtree named:
+
+`Drv9418_DevType_0245_SS103c88b5`
+
+Notable values include:
+
+- `SecondaryChannelConfig = 3`;
+- distinct volume/mute state for `RearLineOutWave3`;
+- distinct volume/mute state for `SecondaryLineOutWave`;
+- distinct volume/mute state for `RearLineOutWaveSST`;
+- distinct volume/mute state for `RearLineOutWaveSST3`;
+- per-channel RSA/AMP calibration values and measured impedance-like values for left and right channels.
+
+### SST module binding
+
+The live `SSTPPCfg` key contains one registered SST module:
+
+`ModuleName = sraudio ... device=RearLineOutWaveSST3`
+
+Realtek driver terminology identifies `RearLineOutWaveSST3` as the **second Realtek HD Audio output with SST**, not merely an effects alias for the ordinary primary output.
+
+This is strong evidence that Windows maintains a second SST-backed render path for the internal speaker system.
+
+### Software children
+
+The active ALC245 device instance enumerates software children for:
+
+- HP Audio Hardware Support Application / Bang & Olufsen control HSA;
+- Realtek Audio Effects Component;
+- Realtek Audio Effects Component (INT);
+- Realtek OVWrap2;
+- Realtek Audio Universal Service;
+- Sound Research Audio Effects Component.
+
+These are attached directly beneath the same physical ALC245 device instance.
+
+## Revised conclusion
+
+The evidence now favors a genuine **additional Windows audio path** over the simpler hypothesis that B&O software merely applies EQ to a single stereo endpoint.
+
+The strongest indicators are:
+
+1. the `SSTXperi4SPK` install section in the Realtek INF;
+2. the model-specific `103C88B5` Realtek profile data;
+3. `SecondaryChannelConfig = 3`;
+4. independent state for primary/secondary/SST/SST3 outputs; and
+5. the Sound Research SST module bound specifically to `RearLineOutWaveSST3`, which Realtek labels as its second SST output.
+
+Linux currently exposes only the generic SOF HDA analog stereo route. The unresolved task is therefore to determine how Windows maps this second SST output to the extra physical speaker pair and whether an equivalent path can be enabled using Linux SOF topology, ALSA HDA pin routing, or a model-specific kernel quirk.
