@@ -4,7 +4,7 @@ This file records **confirmed facts** about the target HP Envy laptop. Do not pr
 
 ## Machine identity
 
-- HP product name: TBD
+- HP product name: HP ENVY Laptop 17-ch0xxx
 - HP product number / SKU: TBD
 - BIOS version: TBD
 - BIOS date: TBD
@@ -25,7 +25,8 @@ This file records **confirmed facts** about the target HP Envy laptop. Do not pr
 
 ### PCI / platform controllers
 
-TBD
+- Intel Smart Sound Technology audio controller present.
+- Windows device: `INTELAUDIO\\CTLR_DEV_A0C8&LINKTYPE_06&DEVTYPE_06&VEN_8086&DEV_AE50&SUBSYS_88B5103C&REV_0001` (Intel Smart Sound Technology for USB Audio).
 
 ### ALSA cards
 
@@ -33,15 +34,20 @@ TBD
 
 ### Codecs
 
-TBD
+- Realtek ALC245 (`VEN_10EC`, `DEV_0245`).
+- HP subsystem ID: `103C:88B5`.
+- Windows device: `INTELAUDIO\\FUNC_01&VEN_10EC&DEV_0245&SUBSYS_103C88B5&REV_1000`.
 
 ### DSP / Sound Open Firmware
 
-TBD
+- Intel Smart Sound Technology is present on the Windows configuration.
+- Linux SOF/HDA binding still needs to be confirmed from the CachyOS diagnostic snapshot.
 
 ### Speaker amplifiers
 
-TBD
+- **Not yet confirmed on the target machine.**
+- Research strongly suggests this HP Envy 17 / ALC245 family may use Cirrus Logic CS35L41 smart amplifiers (`CSC3551`) over I2C. Similar HP Envy 17 systems fail under Linux when BIOS ACPI `_DSD` properties for those amplifiers are missing.
+- Confirm by checking CachyOS kernel logs for `cs35l41-hda`, `CSC3551`, `ACPI _DSD`, or `Platform not supported` before applying any workaround.
 
 ### Internal microphone
 
