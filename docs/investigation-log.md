@@ -46,3 +46,30 @@ Establish a reproducible workflow for diagnosing the HP Envy Bang & Olufsen spea
 **PROMISING** — the DSP, firmware, topology, and ALC245 codec are initializing. The standout anomaly is the PCI subsystem ID `103c:0000` rather than the Windows-observed codec subsystem `103c:88B5`.
 
 Upstream Linux fixes from 2026 document the same HP pattern: a null PCI SSID can cause a vendor-wide HP quirk to match before the Realtek driver falls back to the codec subsystem ID, preventing the model-specific amplifier/fixup path from being selected. This is now the leading hypothesis, but the target codec subsystem ID must be confirmed from Linux before attempting a quirk override.
+
+## 2026-09-25 — Functional audio confirmed; upper output path still unresolved
+
+### Confirmed working on CachyOS kernel 7.1.6-1-cachyos
+
+- Internal stereo speaker output is audible on both left and right channels.
+- Speaker output is clear; the primary issue is not general distortion or total speaker failure.
+- Headphone jack works.
+- Microphone works.
+- SOF, ALC245, PipeWire/ALSA playback path, and basic jack/capture support are therefore functional.
+
+### Remaining issue
+
+The user reports that the upper/top-facing B&O speaker area that is active under Windows is silent under Linux. This means the system is **usable but not feature-complete**.
+
+### Revised research direction
+
+Do not treat this as a generic PipeWire/ALSA failure. The next investigation should focus on how HP's Windows audio stack enables the additional physical output path, including:
+
+- Realtek codec pin/fixup behavior for subsystem 103c:88b5;
+- any HP-specific codec verb or vendor coefficient programming;
+- Windows Realtek/Intel SST driver INF entries for board 88B5;
+- HP/Bang & Olufsen APO or extension-driver packages that may configure extra routing;
+- ACPI methods/devices that Linux may not currently bind to an audio amplifier;
+- comparison of Windows and Linux codec/pin state where practical.
+
+Status: **PARTIAL SUCCESS** — core audio works; additional HP/B&O speaker path remains unresolved.
