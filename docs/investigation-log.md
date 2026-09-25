@@ -73,3 +73,44 @@ Do not treat this as a generic PipeWire/ALSA failure. The next investigation sho
 - comparison of Windows and Linux codec/pin state where practical.
 
 Status: **PARTIAL SUCCESS** — core audio works; additional HP/B&O speaker path remains unresolved.
+
+## 2026-09-25 — Windows known-good stack captured
+
+### Key Windows findings
+
+The Windows snapshot confirms that the working configuration is substantially richer than the base ALC245 codec driver alone.
+
+- Base codec driver: Realtek High Definition Audio, version `6.0.9418.1`, INF `oem42.inf`, bound to `INTELAUDIO\\FUNC_01&VEN_10EC&DEV_0245&SUBSYS_103C88B5...`.
+- Intel Smart Sound Technology BUS / OED / DMIC / USB Audio stack is installed, version `10.29.0.6590`.
+- HP Audio Hardware Support Application is installed as a Realtek software component, version `11.0.6000.301`, INF `oem49.inf`.
+  - Original INF name: `bangolufsenaudiocontrolhsa.inf`.
+  - Device instance explicitly identifies `BANGOLUFSENAUDIOCONTROLHSA`.
+- Realtek Audio Effects Component, version `11.0.6000.1013`.
+- Realtek Audio Effects Component (INT), version `11.0.6000.1013`.
+- Realtek Audio Universal Service, version `1.0.636.0`.
+- Realtek OVWrap2 Component, version `11.0.6000.23`.
+- Sound Research Audio Effects Component (APO), version `2.0.11.26`, provider Sound Research Corp.
+- These software components are siblings/children of the same ALC245 device instance and therefore form part of the Windows audio stack for subsystem `103C:88B5`.
+
+### Interpretation
+
+**STRONG LEAD** — Windows speaker behavior is not attributable solely to the base Realtek codec driver. The system uses HP/Bang & Olufsen support software plus multiple Realtek APO/effects components and a third-party Sound Research APO. Linux currently exposes the base SOF + ALC245 stereo path but has no equivalent of these Windows software components.
+
+This makes two mechanisms plausible:
+
+1. the additional upper/top-facing output is enabled through a hardware-specific extension/configuration path in the Realtek/HP driver package; and/or
+2. the perceived additional output is produced or substantially altered by Windows APO processing rather than a separately exposed ALSA channel.
+
+### Next research target
+
+Inspect the Windows driver-store INF packages tied to this stack, especially:
+
+- `oem42.inf` (base Realtek codec),
+- `oem49.inf` / `bangolufsenaudiocontrolhsa.inf`,
+- `oem59.inf` / Realtek APO,
+- `oem53.inf` / Realtek INT APO,
+- `oem50.inf` / Realtek service,
+- `oem51.inf` / OVWrap2,
+- `oem57.inf` / Sound Research APO.
+
+Look for subsystem-specific sections for `103C88B5`, endpoint routing, jack/pin configuration, codec coefficients, custom properties, APO registration, and any topology/profile identifiers that can be mapped to Linux behavior.
