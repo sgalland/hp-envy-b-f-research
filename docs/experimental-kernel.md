@@ -334,3 +334,29 @@ This result is **not** treated as evidence that the speaker paths failed. At the
 A second audible test increased ALSA Master to 50% while keeping PipeWire at 5%, with both Speaker and Bass Speaker switches enabled. The same short system sound produced no audible output.
 
 Unlike the first 1%/1% test, this is no longer reasonably explained by excessive attenuation alone. Experiment 2 has confirmed the intended 0x17 -> 0x03 routing and common Master attenuation, but audible speaker output remains absent under the tested state. The next diagnostic step is to verify the active PipeWire sink/route and codec stream state during playback before changing any additional codec state or introducing amplifier-enable hypotheses.
+
+
+### Experiment 2 PipeWire route check
+
+The default PipeWire sink was verified as the internal SOF HDA speaker path, not HDMI:
+
+```text
+api.alsa.card.name = "sof-hda-dsp"
+api.alsa.path = "hw:sofhdadsp"
+node.description = "... Speaker"
+node.name = "alsa_output.pci-0000_00_1f.3-platform-skl_hda_dsp_generic.HiFi__Speaker__sink"
+```
+
+Therefore the silent tests were not caused by accidentally targeting an HDMI sink.
+
+A post-test inspection taken after the sink had been muted showed:
+
+```text
+Master: 51%, off
+Speaker: off
+Bass Speaker: on
+0x02 Amp-Out vals: [0x2c 0x2c]
+0x03 Amp-Out vals: [0x2c 0x2c]
+```
+
+This shows that PipeWire/UCM muting can drive the ALSA Master and Speaker switches off while retaining the underlying DAC gain values. Consequently, post-mute mixer state cannot be used as evidence for the exact switch state that existed during playback. The next diagnostic should capture mixer and codec state while the PipeWire sink is actively unmuted, before re-muting it.
