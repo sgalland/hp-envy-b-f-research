@@ -390,3 +390,10 @@ Master: 32 [37%] [-41.25 dB], on
 ```
 
 Both DACs continue to track together through the common Master control. This provides a conservative but non-minimum gain point for the next audible test.
+
+
+### Experiment 2 audible result at 20 percent
+
+A short PipeWire-routed system sound was played at PipeWire 20%, corresponding to ALSA Master 32 / -41.25 dB and raw amp value 0x20 on both DAC1 and DAC2. No audible output was heard.
+
+This is now strong evidence that experiment 2 corrected the unsafe DAC routing and gain-control topology without restoring speaker output. The next diagnostic should verify that an active playback stream is actually assigned to the expected HDA converters while sound is being played. If stream assignment is correct and output remains silent, investigation should move to a separate speaker/amplifier-enable or platform-initialization hypothesis rather than further DAC-routing changes.
