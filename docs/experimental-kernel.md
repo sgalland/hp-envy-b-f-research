@@ -360,3 +360,19 @@ Bass Speaker: on
 ```
 
 This shows that PipeWire/UCM muting can drive the ALSA Master and Speaker switches off while retaining the underlying DAC gain values. Consequently, post-mute mixer state cannot be used as evidence for the exact switch state that existed during playback. The next diagnostic should capture mixer and codec state while the PipeWire sink is actively unmuted, before re-muting it.
+
+
+### Experiment 2 PipeWire-to-ALSA volume mapping
+
+With no audio stream running, PipeWire was set to 5% and unmuted. The corresponding ALSA/codec state was:
+
+```text
+PipeWire: 0.05, unmuted
+Master: 0 [0%] [-65.25 dB], on
+Speaker: on
+Bass Speaker: on
+0x02 Amp-Out vals: [0x00 0x00]
+0x03 Amp-Out vals: [0x00 0x00]
+```
+
+Therefore a PipeWire sink level of 5% maps to the minimum hardware gain step on this codec. A silent listening result at 5% is not evidence of routing failure. PipeWire is the preferred control surface for subsequent tests; direct `amixer Master` changes should be avoided while characterizing normal desktop behavior.
