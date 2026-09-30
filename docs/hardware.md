@@ -5,18 +5,21 @@ This file records **confirmed facts** about the target HP Envy laptop. Do not pr
 ## Machine identity
 
 - HP product name: HP ENVY Laptop 17-ch0xxx
+- Audio codec subsystem: `103C:88B5`
 - HP product number / SKU: TBD
 - BIOS version: TBD
 - BIOS date: TBD
-- CPU: TBD
+- CPU: Intel platform using Tiger Lake-generation SOF driver support
 - Chipset: TBD
 
 ## Linux environment
 
-- Distribution: CachyOS live environment
-- Boot method: Ventoy
-- Kernel: TBD
-- Kernel command line: TBD
+- Distribution: CachyOS
+- Experimental kernel: `7.2.8-1-cachyos-hp-envy-audio`
+- Audio stack: PipeWire/WirePlumber over ALSA/SOF/HDA
+- SOF PCI driver: `sof-audio-pci-intel-tgl`
+- SOF firmware: `intel/sof/sof-tgl.ri`
+- SOF topology: `intel/sof-tplg/sof-hda-generic-2ch.tplg`
 - PipeWire version: TBD
 - WirePlumber version: TBD
 - ALSA library / utilities version: TBD
@@ -25,64 +28,109 @@ This file records **confirmed facts** about the target HP Envy laptop. Do not pr
 
 ### PCI / platform controllers
 
-- Intel Smart Sound Technology audio controller present.
-- Windows device: `INTELAUDIO\\CTLR_DEV_A0C8&LINKTYPE_06&DEVTYPE_06&VEN_8086&DEV_AE50&SUBSYS_88B5103C&REV_0001` (Intel Smart Sound Technology for USB Audio).
+- Intel Smart Sound Technology / Sound Open Firmware audio path is active under Linux.
+- Windows device observed: `INTELAUDIO\\CTLR_DEV_A0C8&LINKTYPE_06&DEVTYPE_06&VEN_8086&DEV_AE50&SUBSYS_88B5103C&REV_0001` (Intel Smart Sound Technology for USB Audio).
 
-### ALSA cards
+### ALSA / SOF card
 
-TBD
+- Linux card 0 is exposed as `sof-hda-dsp`.
+- HDA codec address: 0.
 
-### Codecs
+### Codec
 
-- Realtek ALC245 (`VEN_10EC`, `DEV_0245`).
-- HP subsystem ID: `103C:88B5`.
+- Realtek ALC245.
+- Vendor/device ID: `0x10ec0245`.
+- HP codec subsystem ID: `0x103c88b5`.
+- Codec revision: `0x100001`.
 - Windows device: `INTELAUDIO\\FUNC_01&VEN_10EC&DEV_0245&SUBSYS_103C88B5&REV_1000`.
 
-### DSP / Sound Open Firmware
+### Internal speaker pins
 
-- Intel Smart Sound Technology is present on the Windows configuration.
-- Linux SOF/HDA binding still needs to be confirmed from the CachyOS diagnostic snapshot.
+The experimental `103c:88b5` kernel quirk exposes two line-out pins as speakers:
 
-### Speaker amplifiers
+- NID `0x14`, driver pin config `0x90170110`.
+- NID `0x17`, driver pin config `0x90170111`.
 
-- **Not yet confirmed on the target machine.**
-- Research strongly suggests this HP Envy 17 / ALC245 family may use Cirrus Logic CS35L41 smart amplifiers (`CSC3551`) over I2C. Similar HP Envy 17 systems fail under Linux when BIOS ACPI `_DSD` properties for those amplifiers are missing.
-- Confirm by checking CachyOS kernel logs for `cs35l41-hda`, `CSC3551`, `ACPI _DSD`, or `Platform not supported` before applying any workaround.
+Observed topology/state:
+
+#### NID 0x14
+
+- Pin type: output with EAPD.
+- Pin control: `0x40` (`OUT`).
+- EAPD: `0x2` (enabled).
+- Connection: fixed to NID `0x02`.
+- Mixer control: `Speaker Playback Switch`.
+- DAC `0x02` exposes `Speaker Playback Volume`.
+
+#### NID 0x17
+
+- Pin type: output-capable pin exposed as `Bass Speaker` by ALSA.
+- Pin control: `0x40` (`OUT`).
+- Connections: `0x02`, `0x03`, `0x06`, `0x08`.
+- Observed selected connection: `0x06`.
+- Mixer control: `Bass Speaker Playback Switch`.
+- DAC `0x06` has no normal hardware playback-volume control.
+- A runtime `SET_CONNECT_SEL 0` attempt did not persist: a following `GET_CONNECT_SEL` still returned selector value `0x2`.
+
+### Physical speaker behavior
+
+- Lower/bottom internal stereo speakers: confirmed working under Linux.
+- Upper/top-facing B&O speaker pair: normally silent under Linux.
+- **Important transient observation:** during one custom-kernel test session, both physical speaker sets were audibly active. The exact preceding runtime state was not captured and the result has not been reproduced after reboot. This proves accessibility, not a known fix.
+- During the same experimental period, output became unexpectedly/dangerously loud relative to the configured PipeWire volume. This is consistent with an independently routed output path that is not governed by the ordinary `Speaker Playback Volume` control, but the exact cause is not yet proven.
+
+### External smart amplifiers
+
+No evidence for a Cirrus Logic CS35L41/CSC3551 path has been found on the target machine:
+
+- no matching ACPI audio/amp device;
+- no matching I2C device name;
+- no loaded CS35/Cirrus module;
+- no CS35/CSC3551/Cirrus kernel-log entry; and
+- no matching `CSC3551`, `CS35L41`, or `Cirrus` string in the DSDT scan performed during the investigation.
+
+Therefore CS35L41 is **not a current target-machine hypothesis** unless new hardware evidence appears.
 
 ### Internal microphone
 
-TBD
+- Confirmed working under Linux.
+- SOF reports two DMICs in NHLT tables.
 
 ### Headphone / headset path
 
-TBD
+- Headphone output confirmed working under Linux.
+- Headphone pin reported as NID `0x21`.
 
 ### HDMI / DisplayPort audio
 
-TBD
+- HDA HDMI codec support is loaded and HDMI/DP endpoints are enumerated.
+- Functional playback test status: TBD.
 
-## Kernel modules
+## Kernel modules observed
 
-TBD
+Relevant loaded modules include:
 
-## Firmware
-
-TBD
-
-## UCM configuration
-
-TBD
+- `snd_sof_pci_intel_tgl`
+- `snd_sof_intel_hda_generic`
+- `snd_sof_intel_hda_common`
+- `snd_sof_intel_hda`
+- `snd_hda_codec_alc269`
+- `snd_hda_codec_realtek_lib`
+- `snd_hda_codec_generic`
+- `snd_hda_codec_hdmi`
+- `snd_hda_core`
 
 ## Known working functions
 
-- [ ] Built-in speakers
-- [ ] Headphones
-- [ ] Headset microphone
-- [ ] Internal microphone
-- [ ] HDMI/DP audio
-- [ ] Volume controls
+- [x] Lower/bottom built-in stereo speakers
+- [ ] Upper/top-facing B&O speaker pair (transiently heard, not reproducible)
+- [x] Headphones
+- [ ] Headset microphone — not separately confirmed
+- [x] Internal microphone
+- [ ] HDMI/DP audio — enumerated, playback not confirmed
+- [ ] Safe unified volume control for all internal speakers
 - [ ] Suspend/resume without audio regression
 
-## Notes
+## Windows comparison
 
-Populate this document from output produced by `scripts/collect-audio-info.sh` and from verified manual tests.
+The known-good Windows Realtek package explicitly configures subsystem `103C:88B5` with `SSTXperi4SPK`, model-specific Realtek data, and a second SST-backed output path. See `docs/windows-driver-analysis.md`.
