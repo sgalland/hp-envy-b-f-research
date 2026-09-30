@@ -152,3 +152,80 @@ Until unified volume behavior is understood:
 **PROMISING INFRASTRUCTURE, NOT A FIX.**
 
 Keep the experimental kernel because it provides a deterministic model-specific starting point. The next engineering question is the correct relationship among pins `0x14`/`0x17`, DACs `0x02`/`0x06`, Realtek's existing ALC245 bass-DAC binding logic, and the Windows `SSTXperi4SPK` / secondary SST configuration.
+
+
+## 2026-09-29 source trace: ALC245 bass-DAC routing
+
+The exact CachyOS `cachyos-7.2.8-1` source was traced before proposing another live test.
+
+### What `ALC245_FIXUP_BASS_HP_DAC` actually does
+
+`ALC245_FIXUP_BASS_HP_DAC` is a thin wrapper around `alc285_fixup_thinkpad_x1_gen7`. It does not write vendor coefficients or directly enable an amplifier.
+
+At `HDA_FIXUP_ACT_PRE_PROBE`, that routing helper:
+
+- replaces NID `0x17`'s connection list with only DACs `0x02` and `0x03`, explicitly excluding `0x06`;
+- sets preferred DAC pairs to:
+  - `0x14 -> 0x02`
+  - `0x17 -> 0x03`
+  - `0x21 -> 0x03`.
+
+The source comment explains the reason: DAC `0x06` is unused because it lacks a volume amplifier.
+
+At `HDA_FIXUP_ACT_BUILD`, the helper renames the generated per-DAC volume controls to `DAC1 Playback Volume` and `DAC2 Playback Volume` so desktop audio software does not manipulate them as ordinary independent speaker controls; the intended user-facing control is Master volume.
+
+This is directly relevant to the target machine because its observed broken topology is `0x17 -> 0x06`, and the uncontrolled-volume incident is consistent with the exact failure mode the upstream helper is designed to avoid.
+
+### Upstream provenance
+
+The generic ALC245 fixup was added for the Minisforum V3 SE. Its patch rationale explicitly describes rerouting bass speakers away from a DAC without volume control. The author reported that routing NID `0x17` through selector 0 or 1 made bass-speaker volume controllable and chose the ThinkPad routing because it permits tuning the ratio between the two speaker sets.
+
+The exact CachyOS 7.2.8 source includes that fixup and maps the Minisforum V3 SE to it.
+
+### Closely related existing fixes
+
+The same source contains two other patterns worth keeping separate from DAC routing:
+
+1. Lenovo Yoga bass-speaker fixes also remove `0x06`/ `0x08` from NID `0x17` and explicitly prefer volume-controlled DACs.
+2. HP-specific amplifier initialization exists independently of routing. For example:
+   - ALC245 Spectre x360 systems toggle GPIO0 during codec init to enable an amplifier.
+   - An ALC274 HP Envy AiO fix toggles GPIO2 on playback prepare/cleanup.
+
+These HP examples demonstrate that speaker routing and amplifier enable can be separate problems. There is not yet evidence that this HP ENVY 17 uses either of those exact GPIO sequences.
+
+### Proposed kernel experiment 2
+
+The narrow next experiment is to keep the confirmed HP pin override and chain it to the existing bass-DAC routing fixup:
+
+```c
+[ALC245_FIXUP_HP_ENVY_17_CH0XXX] = {
+    .type = HDA_FIXUP_PINS,
+    .v.pins = (const struct hda_pintbl[]) {
+        { 0x14, 0x90170110 },
+        { 0x17, 0x90170111 },
+        { }
+    },
+    .chained = true,
+    .chain_id = ALC245_FIXUP_BASS_HP_DAC,
+},
+```
+
+HDA fixup chaining calls the chained fixup after the current fixup unless `chained_before` is requested. This ordering is appropriate here: apply the HP pin definitions, then let the existing pre-probe routing helper remove DAC `0x06` and choose the preferred volume-controlled DACs.
+
+Expected post-boot topology for this experiment:
+
+```text
+0x14 -> 0x02
+0x17 -> 0x03
+0x21 -> 0x03
+```
+
+This proposal is preferable to another runtime `hda-verb SET_CONNECT_SEL` attempt because the connection list and preferred DACs are changed before the generic HDA parser builds the routing and controls.
+
+### Experiment-2 gate
+
+Do not build or install kernel experiment 2 until the patch is reviewed to confirm that the only functional change from experiment 1 is chaining the HP pin fixup to `ALC245_FIXUP_BASS_HP_DAC`.
+
+After boot, verify topology and mixer controls before any audible test. Begin playback muted and at conservative hardware/software levels.
+
+If correct routing restores safe volume control but the upper speakers remain silent, investigate HP-specific amplifier initialization as a separate hypothesis rather than adding it to the same experiment.
