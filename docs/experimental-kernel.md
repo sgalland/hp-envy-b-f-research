@@ -320,3 +320,10 @@ With both individual simple controls `DAC1` and `DAC2` displaying 100% / 0 dB, s
 The ALSA control list contains one `Master Playback Volume` plus the separate `DAC1 Playback Volume` and `DAC2 Playback Volume` controls.
 
 This confirms that the Master control supplies common attenuation to both volume-capable speaker DACs even though the individual DAC simple controls remain displayed at unity. This is the intended safe gain topology for the first audible experiment-2 test.
+
+
+### Experiment 2 first audible test
+
+The first audible test was intentionally run at the minimum safe settings established above: ALSA Master 1%, both speaker switches enabled, and PipeWire at 1%. No sound was heard.
+
+This result is **not** treated as evidence that the speaker paths failed. At these settings the hardware Master attenuation is about -64.5 dB and PipeWire adds substantial additional software attenuation, so the combined level can reasonably be below audibility. The next test should raise only one gain layer at a time while retaining the confirmed volume-controlled DAC routing.
