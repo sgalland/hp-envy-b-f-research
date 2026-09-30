@@ -327,3 +327,10 @@ This confirms that the Master control supplies common attenuation to both volume
 The first audible test was intentionally run at the minimum safe settings established above: ALSA Master 1%, both speaker switches enabled, and PipeWire at 1%. No sound was heard.
 
 This result is **not** treated as evidence that the speaker paths failed. At these settings the hardware Master attenuation is about -64.5 dB and PipeWire adds substantial additional software attenuation, so the combined level can reasonably be below audibility. The next test should raise only one gain layer at a time while retaining the confirmed volume-controlled DAC routing.
+
+
+### Experiment 2 second audible test
+
+A second audible test increased ALSA Master to 50% while keeping PipeWire at 5%, with both Speaker and Bass Speaker switches enabled. The same short system sound produced no audible output.
+
+Unlike the first 1%/1% test, this is no longer reasonably explained by excessive attenuation alone. Experiment 2 has confirmed the intended 0x17 -> 0x03 routing and common Master attenuation, but audible speaker output remains absent under the tested state. The next diagnostic step is to verify the active PipeWire sink/route and codec stream state during playback before changing any additional codec state or introducing amplifier-enable hypotheses.
