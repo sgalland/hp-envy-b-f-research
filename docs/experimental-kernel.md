@@ -306,3 +306,17 @@ ofs=0x57, nsteps=0x57, stepsize=0x02
 and both were observed at raw amp value `0x00` before audible testing.
 
 This confirms that experiment 2 moved NID `0x17` away from the no-volume DAC `0x06` and onto DAC `0x03`, which has a real hardware playback-volume control. The expected safe control model is therefore now present at the codec level. Audible behavior still needs to be tested separately.
+
+
+### Experiment 2 Master-volume binding confirmation
+
+With both individual simple controls `DAC1` and `DAC2` displaying 100% / 0 dB, setting the ALSA `Master` control to 1% changed the underlying codec amp values for both DACs to:
+
+```text
+0x02 Amp-Out vals: [0x01 0x01]
+0x03 Amp-Out vals: [0x01 0x01]
+```
+
+The ALSA control list contains one `Master Playback Volume` plus the separate `DAC1 Playback Volume` and `DAC2 Playback Volume` controls.
+
+This confirms that the Master control supplies common attenuation to both volume-capable speaker DACs even though the individual DAC simple controls remain displayed at unity. This is the intended safe gain topology for the first audible experiment-2 test.
