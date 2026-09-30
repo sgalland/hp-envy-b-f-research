@@ -397,3 +397,26 @@ Both DACs continue to track together through the common Master control. This pro
 A short PipeWire-routed system sound was played at PipeWire 20%, corresponding to ALSA Master 32 / -41.25 dB and raw amp value 0x20 on both DAC1 and DAC2. No audible output was heard.
 
 This is now strong evidence that experiment 2 corrected the unsafe DAC routing and gain-control topology without restoring speaker output. The next diagnostic should verify that an active playback stream is actually assigned to the expected HDA converters while sound is being played. If stream assignment is correct and output remains silent, investigation should move to a separate speaker/amplifier-enable or platform-initialization hypothesis rather than further DAC-routing changes.
+
+
+### Experiment 2 active-stream confirmation
+
+During repeated playback at PipeWire 20%, both speaker DACs were observed on the same active HDA stream:
+
+```text
+Node 0x02: Converter: stream=1, channel=0
+Node 0x03: Converter: stream=1, channel=0
+```
+
+At the same time, the default PipeWire sink remained the internal `sof-hda-dsp` Speaker sink at volume 0.20.
+
+Combined with the previously confirmed topology:
+
+```text
+0x14 -> 0x02
+0x17 -> 0x03
+```
+
+and nonzero hardware gain on both DACs, this establishes a complete software routing chain from PipeWire to both HDA speaker converters while audible output remains absent.
+
+Conclusion: experiment 2 successfully corrected the DAC-routing and gain-control problem, but speaker output still requires an additional platform-specific enable/initialization step. Further DAC-routing experiments are not the next priority. The next research branch should focus on HP-specific speaker/amplifier initialization or other platform state that Windows establishes and Linux does not.
