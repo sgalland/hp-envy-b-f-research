@@ -286,3 +286,23 @@ Before audible testing, the observed mixer state was deliberately safe:
 - PipeWire default sink: 2%, muted
 
 No audible conclusion has yet been drawn from experiment 2. The next gate is to inspect the generated DAC controls and then perform a deliberately low-volume listening test.
+
+
+### Experiment 2 DAC-control confirmation
+
+After the routing fix was confirmed, ALSA exposed simple controls named `DAC1` and `DAC2`. The codec dump identifies them as:
+
+```text
+Node 0x02: Control: name="DAC1 Playback Volume"
+Node 0x03: Control: name="DAC2 Playback Volume"
+```
+
+Both nodes are stereo `Amp-Out` DACs with hardware volume capability:
+
+```text
+ofs=0x57, nsteps=0x57, stepsize=0x02
+```
+
+and both were observed at raw amp value `0x00` before audible testing.
+
+This confirms that experiment 2 moved NID `0x17` away from the no-volume DAC `0x06` and onto DAC `0x03`, which has a real hardware playback-volume control. The expected safe control model is therefore now present at the codec level. Audible behavior still needs to be tested separately.
