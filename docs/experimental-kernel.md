@@ -376,3 +376,17 @@ Bass Speaker: on
 ```
 
 Therefore a PipeWire sink level of 5% maps to the minimum hardware gain step on this codec. A silent listening result at 5% is not evidence of routing failure. PipeWire is the preferred control surface for subsequent tests; direct `amixer Master` changes should be avoided while characterizing normal desktop behavior.
+
+
+### Experiment 2 20-percent volume mapping
+
+With no audio stream running, PipeWire was set to 20% and unmuted. The corresponding codec state was:
+
+```text
+PipeWire: 0.20
+Master: 32 [37%] [-41.25 dB], on
+0x02 Amp-Out vals: [0x20 0x20]
+0x03 Amp-Out vals: [0x20 0x20]
+```
+
+Both DACs continue to track together through the common Master control. This provides a conservative but non-minimum gain point for the next audible test.
