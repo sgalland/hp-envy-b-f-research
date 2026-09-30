@@ -229,3 +229,60 @@ Do not build or install kernel experiment 2 until the patch is reviewed to confi
 After boot, verify topology and mixer controls before any audible test. Begin playback muted and at conservative hardware/software levels.
 
 If correct routing restores safe volume control but the upper speakers remain silent, investigate HP-specific amplifier initialization as a separate hypothesis rather than adding it to the same experiment.
+
+
+## 2026-09-29 experiment 2 boot result
+
+Experiment 2 was built and installed as a distinct package/kernel:
+
+- package: `linux-cachyos-hp-envy-audio-v2 7.2.8-1`
+- running release: `7.2.8-1-cachyos-hp-envy-audio-v2`
+
+The actual experiment-2 implementation kept the experiment-1 helper function and chained its fixup to `ALC245_FIXUP_BASS_HP_DAC`:
+
+```c
+[ALC245_FIXUP_HP_ENVY_17_CH0XXX] = {
+    .type = HDA_FIXUP_FUNC,
+    .v.func = alc245_fixup_hp_envy_17_ch0xxx,
+    .chained = true,
+    .chain_id = ALC245_FIXUP_BASS_HP_DAC,
+},
+```
+
+This is the authoritative implementation; the earlier proposal that showed the HP fixup directly as `HDA_FIXUP_PINS` was illustrative rather than the exact built patch.
+
+Boot validation confirms the model fixup matched:
+
+```text
+ALC245: picked fixup for PCI SSID 103c:88b5
+autoconfig for ALC245: line_outs=2 (0x14/0x17/0x0/0x0/0x0) type:speaker
+```
+
+NID `0x14` remains bound to `0x02`.
+
+For NID `0x17`, the hardware codec dump still advertises all four physical connection candidates:
+
+```text
+Connection: 4
+    0x02 0x03* 0x06 0x08
+```
+
+but the HDA driver's override is now visible separately:
+
+```text
+In-driver Connection: 2
+    0x02 0x03
+```
+
+and `0x03` is selected. This is the expected result of `ALC245_FIXUP_BASS_HP_DAC`: DAC `0x06` is no longer available to the driver's routing for the bass-speaker pin, while the volume-controlled DAC `0x03` is selected.
+
+Therefore the experiment-2 routing change is **CONFIRMED**.
+
+Before audible testing, the observed mixer state was deliberately safe:
+
+- Master: 0%, muted
+- Speaker switch: off
+- Bass Speaker switch: on
+- PipeWire default sink: 2%, muted
+
+No audible conclusion has yet been drawn from experiment 2. The next gate is to inspect the generated DAC controls and then perform a deliberately low-volume listening test.
