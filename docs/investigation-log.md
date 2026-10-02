@@ -114,17 +114,17 @@ A minimal Realtek `alc269.c` fixup was prepared for:
 - pin `0x14`: `0x90170110`;
 - pin `0x17`: `0x90170111`.
 
-The patch adds the fixup and a `SND_PCI_QUIRK(0x103c, 0x88b5, ...)` match. The research copy was named `hp-envy-17-ch0xxx-audio.patch`.
+The patch adds the fixup and a `SND_PCI_QUIRK(0x103c, 0x88b5, ...)` match. The package-build patch was named `hp-envy-17-ch0xxx-audio.patch`; its research copy is `patches/hp-envy-17-ch0xxx-audio-v1.patch`.
 
 ### Result
 
 **PROMISING** — sufficient to proceed to a controlled custom-kernel test.
 
-## 2026-09-29 — Custom CachyOS kernel built and installed
+## 2026-09-29 — Experiment 1 CachyOS kernel built and installed
 
 ### Build
 
-A custom package based on CachyOS 7.2.8 was built successfully as:
+A custom package based on CachyOS 7.2.8-1 was built and installed on 2026-09-29 as:
 
 `linux-cachyos-hp-envy-audio 7.2.8-1`
 
@@ -294,17 +294,36 @@ No `CS35`, `CSC3551`, `CS35L41`, `Cirrus`, or matching amplifier device was foun
 
 **NO SUPPORTING EVIDENCE** — stop treating CS35L41/CSC3551 as the leading target-machine explanation unless new evidence appears.
 
+## 2026-09-29 — Experiment 2 CachyOS kernel built, installed, and booted
+
+### Intended change
+
+Keep the experiment 1 HP pin fixup and chain it to the existing `ALC245_FIXUP_BASS_HP_DAC` routing fixup. The canonical research patch is `patches/hp-envy-17-ch0xxx-audio-v2-bass-dac.patch`; its contents match the patch consumed by the successful v2 build byte-for-byte. Its BLAKE2 checksum is recorded in `experimental-kernel.md`, along with the reproducible package recipe. The earlier committed patch differed only in context whitespace and was semantically identical under `diff -uw`.
+
+### Recovered package and journal evidence
+
+- Base: CachyOS Linux 7.2.8-1.
+- Package: `linux-cachyos-hp-envy-audio-v2 7.2.8-1`, built at approximately 19:50 MDT.
+- Installed at approximately 21:44 MDT.
+- Journal confirms boot of `7.2.8-1-cachyos-hp-envy-audio-v2` at 21:46:40 MDT.
+- That boot persisted until 2026-10-01 19:41.
+
+### Result
+
+**BUILD, INSTALL, AND BOOT CONFIRMED.** At the time this history was recovered, no listening result was preserved and the machine had returned to the stock CachyOS kernel. Subsequent experiment-2 routing and listening observations are recorded in `experimental-kernel.md`.
+
 ## Current investigation boundary
 
 Known facts now support this narrower problem statement:
 
 1. Windows configures `103C:88B5` as a four-speaker/SST-capable platform.
 2. Linux SOF + ALC245 normally drives the lower speaker pair only.
-3. The custom kernel reliably exposes pins `0x14` and `0x17` as the intended model-specific speaker pair.
-4. Linux produced sound from both physical speaker sets at least once.
-5. That success did not survive reboot and its exact runtime state is unknown.
-6. `0x14` and `0x17` currently follow different DAC/volume paths, with `0x17 → 0x06` lacking ordinary hardware playback volume.
+3. Experiment 1 exposed pins `0x14` and `0x17` as the intended model-specific speaker pair.
+4. During experiment 1, Linux produced sound from both physical speaker sets at least once.
+5. That experiment 1 success did not survive reboot and its exact runtime state is unknown.
+6. In the captured experiment 1 topology, `0x14` and `0x17` followed different DAC/volume paths, with `0x17 → 0x06` lacking ordinary hardware playback volume.
 7. A direct runtime connection-selector write to `0x17` did not stick.
 8. No target-machine evidence currently supports an external CS35L41 smart-amplifier path.
+9. Experiment 2, which chained the HP pin fixup to `ALC245_FIXUP_BASS_HP_DAC`, was built, installed, and booted. Subsequent tests confirmed routing through volume-controlled DAC `0x03` but found no audible speaker output at the tested settings.
 
-The next work should investigate the existing upstream ALC245 bass-DAC/bind-DAC fixup machinery and the SOF/Realtek relationship to the Windows secondary SST path. Do not resume blind codec writes.
+The next work should investigate HP-specific speaker/amplifier initialization or other platform state in light of the confirmed experiment-2 software routing chain. Do not resume blind codec writes.

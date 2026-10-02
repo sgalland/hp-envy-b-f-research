@@ -2,14 +2,14 @@
 
 ## Purpose
 
-This document records the controlled kernel experiment for the HP ENVY 17-ch0xxx / Realtek ALC245 subsystem `103C:88B5`.
+This document records two controlled kernel experiments for the HP ENVY 17-ch0xxx / Realtek ALC245 subsystem `103C:88B5`.
 
-The experiment is **not a completed audio fix**. Its purpose is to make the model-specific speaker topology deterministic at boot so the remaining routing problem can be investigated without relying on ephemeral sysfs pin overrides.
+Neither experiment is established as a completed audio fix. Their purpose was to make the model-specific speaker topology deterministic at boot and investigate DAC routing without relying on ephemeral sysfs pin overrides.
 
-## Kernel
+## Experiment 1 kernel (2026-09-29)
 
 - Base: CachyOS Linux 7.2.8-1 source/package.
-- Experimental package: `linux-cachyos-hp-envy-audio 7.2.8-1`.
+- Experimental package: `linux-cachyos-hp-envy-audio 7.2.8-1`, built and installed on 2026-09-29.
 - Running release observed after installation: `7.2.8-1-cachyos-hp-envy-audio`.
 - Installed alongside the stock CachyOS kernel so a known-good fallback remains available.
 
@@ -33,13 +33,11 @@ The fixup assigns:
 0x17 0x90170111
 ```
 
-The research patch was named:
-
-`hp-envy-17-ch0xxx-audio.patch`
+The package-build patch was named `hp-envy-17-ch0xxx-audio.patch`; its research copy is `patches/hp-envy-17-ch0xxx-audio-v1.patch`.
 
 ## Boot validation
 
-The experimental kernel has been booted successfully on the target machine.
+The experiment 1 kernel was booted and tested on the target machine.
 
 Kernel log confirms:
 
@@ -86,7 +84,7 @@ The both-speaker success therefore depended on additional runtime state that was
 
 The exact command/state sequence that produced the transient success is unknown. Do not reconstruct it from memory and do not describe the pin fixup itself as the fix.
 
-## Current topology problem
+## Experiment 1 observed topology problem
 
 ### Speaker pin 0x14
 
@@ -114,7 +112,7 @@ with `0x06` selected in the observed codec state:
 
 DAC `0x06` is an audio output but does not expose the normal hardware playback-volume control present on `0x02`.
 
-This matters because experimental playback became unexpectedly loud even with a very low PipeWire sink volume. The current working hypothesis is that simply enabling the second speaker path is insufficient; the correct fix must also reproduce the intended DAC binding/gain/volume behavior.
+This matters because experiment 1 playback became unexpectedly loud even with a very low PipeWire sink volume. The working hypothesis was that simply enabling the second speaker path was insufficient; the correct fix also needed the intended DAC binding/gain/volume behavior.
 
 ## Selector experiment
 
@@ -133,7 +131,7 @@ Result: **NO EFFECT**. Do not assume a raw `SET_CONNECT_SEL` write can solve the
 
 Inspection of the Realtek ALC245 code found existing bass-DAC/DAC-binding fixup machinery, including `ALC245_FIXUP_BASS_HP_DAC`. The code specifically has to account for DAC node `0x06` and its lack of volume control.
 
-That existing mechanism is now more relevant than adding more speculative pin writes. Before changing the experimental patch, determine whether this HP model should compose the pin fixup with an existing ALC245 DAC-binding/bass-speaker fixup, or whether the Windows secondary SST path implies a different SOF/topology requirement.
+That existing mechanism motivated experiment 2's chained fixup. The Windows secondary SST path still leaves a separate SOF/topology question.
 
 ## Safety/testing protocol
 
@@ -147,11 +145,11 @@ Until unified volume behavior is understood:
 - record exactly which physical speaker set was heard; and
 - reboot between experiments when a clean baseline is required.
 
-## Current status
+## Experiment 1 status
 
 **PROMISING INFRASTRUCTURE, NOT A FIX.**
 
-Keep the experimental kernel because it provides a deterministic model-specific starting point. The next engineering question is the correct relationship among pins `0x14`/`0x17`, DACs `0x02`/`0x06`, Realtek's existing ALC245 bass-DAC binding logic, and the Windows `SSTXperi4SPK` / secondary SST configuration.
+Experiment 1 provided a deterministic model-specific starting point. The next engineering question was the correct relationship among pins `0x14`/`0x17`, DACs `0x02`/`0x06`, Realtek's existing ALC245 bass-DAC binding logic, and the Windows `SSTXperi4SPK` / secondary SST configuration.
 
 
 ## 2026-09-29 source trace: ALC245 bass-DAC routing
@@ -193,52 +191,9 @@ The same source contains two other patterns worth keeping separate from DAC rout
 
 These HP examples demonstrate that speaker routing and amplifier enable can be separate problems. There is not yet evidence that this HP ENVY 17 uses either of those exact GPIO sequences.
 
-### Proposed kernel experiment 2
+### Experiment 2 implementation
 
-The narrow next experiment is to keep the confirmed HP pin override and chain it to the existing bass-DAC routing fixup:
-
-```c
-[ALC245_FIXUP_HP_ENVY_17_CH0XXX] = {
-    .type = HDA_FIXUP_PINS,
-    .v.pins = (const struct hda_pintbl[]) {
-        { 0x14, 0x90170110 },
-        { 0x17, 0x90170111 },
-        { }
-    },
-    .chained = true,
-    .chain_id = ALC245_FIXUP_BASS_HP_DAC,
-},
-```
-
-HDA fixup chaining calls the chained fixup after the current fixup unless `chained_before` is requested. This ordering is appropriate here: apply the HP pin definitions, then let the existing pre-probe routing helper remove DAC `0x06` and choose the preferred volume-controlled DACs.
-
-Expected post-boot topology for this experiment:
-
-```text
-0x14 -> 0x02
-0x17 -> 0x03
-0x21 -> 0x03
-```
-
-This proposal is preferable to another runtime `hda-verb SET_CONNECT_SEL` attempt because the connection list and preferred DACs are changed before the generic HDA parser builds the routing and controls.
-
-### Experiment-2 gate
-
-Do not build or install kernel experiment 2 until the patch is reviewed to confirm that the only functional change from experiment 1 is chaining the HP pin fixup to `ALC245_FIXUP_BASS_HP_DAC`.
-
-After boot, verify topology and mixer controls before any audible test. Begin playback muted and at conservative hardware/software levels.
-
-If correct routing restores safe volume control but the upper speakers remain silent, investigate HP-specific amplifier initialization as a separate hypothesis rather than adding it to the same experiment.
-
-
-## 2026-09-29 experiment 2 boot result
-
-Experiment 2 was built and installed as a distinct package/kernel:
-
-- package: `linux-cachyos-hp-envy-audio-v2 7.2.8-1`
-- running release: `7.2.8-1-cachyos-hp-envy-audio-v2`
-
-The actual experiment-2 implementation kept the experiment-1 helper function and chained its fixup to `ALC245_FIXUP_BASS_HP_DAC`:
+Experiment 2 kept the confirmed HP pin override and chained it to the existing bass-DAC routing fixup. The patch uses the same HP pre-probe pin function as experiment 1, with this fixup entry:
 
 ```c
 [ALC245_FIXUP_HP_ENVY_17_CH0XXX] = {
@@ -249,7 +204,36 @@ The actual experiment-2 implementation kept the experiment-1 helper function and
 },
 ```
 
-This is the authoritative implementation; the earlier proposal that showed the HP fixup directly as `HDA_FIXUP_PINS` was illustrative rather than the exact built patch.
+HDA fixup chaining calls the chained fixup after the current fixup unless `chained_before` is requested. This ordering applies the HP pin definitions before the existing pre-probe routing helper removes DAC `0x06` and chooses the preferred volume-controlled DACs.
+
+The predicted post-boot topology was:
+
+```text
+0x14 -> 0x02
+0x17 -> 0x03
+0x21 -> 0x03
+```
+
+This kernel change configures the connection list and preferred DACs before the generic HDA parser builds the routing and controls. The subsequent boot observations below confirm the routing change and mixer behavior.
+
+### Experiment 2 package recipe and recovered history
+
+The pre-build gate called for reviewing the patch to confirm that the only functional change from experiment 1 was chaining the HP pin fixup to `ALC245_FIXUP_BASS_HP_DAC`. That gate is historical: experiment 2 was subsequently built, installed, and booted.
+
+To reproduce the package build from CachyOS Linux `7.2.8-1`:
+
+1. Use package suffix `cachyos-hp-envy-audio-v2`, producing `linux-cachyos-hp-envy-audio-v2 7.2.8-1` and kernel release `7.2.8-1-cachyos-hp-envy-audio-v2`.
+2. Add `hp-envy-17-ch0xxx-audio.patch` to the PKGBUILD `source` array, using `patches/hp-envy-17-ch0xxx-audio-v2-bass-dac.patch` as its contents.
+3. Use this BLAKE2 checksum for the patch in the corresponding PKGBUILD `b2sums` entry: `7405a9e2bb3f80b85311976744d6030326331031b640db71abd0e9d97812ad3b4cfbe5bace96c64fce0190e846916baa9141f0635564a046ecf02924acf0e87a`.
+4. Remove the `linux-cachyos-lto` and `linux-cachyos-lto-headers` `replaces` declarations so the experimental kernel can coexist with the stock fallback kernel.
+
+`dkms-clang.patch` is an upstream CachyOS build input, not HP-Envy-specific research material. The disposable build checkout is not needed to retain the HP experiment.
+
+The canonical v2 research patch is byte-for-byte the patch consumed by the successful package build. The earlier committed copy differs only in context whitespace and is semantically identical under `diff -uw`.
+
+The v2 package was built at approximately 19:50 MDT on 2026-09-29 and installed at approximately 21:44 MDT. Journal evidence confirms a boot of `7.2.8-1-cachyos-hp-envy-audio-v2` at 21:46:40 MDT. That boot persisted until 2026-10-01 19:41. The machine had returned to the stock CachyOS kernel when this history was recovered.
+
+## 2026-09-29 experiment 2 boot result
 
 Boot validation confirms the model fixup matched:
 
@@ -285,7 +269,7 @@ Before audible testing, the observed mixer state was deliberately safe:
 - Bass Speaker switch: on
 - PipeWire default sink: 2%, muted
 
-No audible conclusion has yet been drawn from experiment 2. The next gate is to inspect the generated DAC controls and then perform a deliberately low-volume listening test.
+At this stage, no audible conclusion had yet been drawn from experiment 2. DAC controls and listening tests were examined subsequently, as recorded below.
 
 
 ### Experiment 2 DAC-control confirmation
